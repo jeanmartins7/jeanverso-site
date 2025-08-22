@@ -1,44 +1,34 @@
-# Use an official node image as a parent image
-FROM node:23
+# Set the Node.js version you want to use. You can change this in docker-compose.yml.
+ARG NODE_VERSION=18
+# Use the base image for Node.js development from Microsoft's repository.
+FROM mcr.microsoft.com/vscode/devcontainers/javascript-node:0-${NODE_VERSION}
 
-# Set environment variables for versions
-ARG HUGO_VERSION=0.147.3
-ARG GO_VERSION=1.24.0
+# Choose between 'hugo' (standard) or 'hugo_extended' (extended) version of Hugo.
+ARG VARIANT=hugo_extended
+# Choose either 'latest' or a specific version number for Hugo.
+ARG VERSION=latest
 
-# Install dependencies
-RUN apt-get update && \
-    apt-get install -y ca-certificates openssl git curl wget build-essential && \
-    rm -rf /var/lib/apt/lists/*
+# Install necessary tools and dependencies, and download Hugo.
+# Download and extract the specified version of Hugo.
+# Move Hugo executable to /usr/bin/ to make it globally accessible.
+RUN apt-get update && apt-get install -y ca-certificates openssl git curl && \
+    rm -rf /var/lib/apt/lists/* && \
+    case ${VERSION} in \
+    latest) \
+    export VERSION=$(curl -s https://api.github.com/repos/gohugoio/hugo/releases/latest | grep "tag_name" | awk '{print substr($2, 3, length($2)-4)}') ;;\
+    esac && \
+    echo ${VERSION} && \
+    wget -O ${VERSION}.tar.gz https://github.com/gohugoio/hugo/releases/download/v${VERSION}/${VARIANT}_${VERSION}_Linux-64bit.tar.gz && \
+    tar xf ${VERSION}.tar.gz && \
+    mv hugo /usr/bin/hugo
 
-# Determine architecture
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "aarch64" ]; then ARCH=arm64; else ARCH=amd64; fi && \
-    echo "Architecture: $ARCH"
+# Expose the port that the Hugo development server will use.
+EXPOSE 1313
 
-# Download and install Hugo Extended
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "aarch64" ]; then ARCH=arm64; else ARCH=amd64; fi && \
-    wget -O hugo_extended_${HUGO_VERSION}.tar.gz https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-${ARCH}.tar.gz && \
-    tar xf hugo_extended_${HUGO_VERSION}.tar.gz && \
-    mv hugo /usr/bin/hugo && \
-    rm hugo_extended_${HUGO_VERSION}.tar.gz && \
-    echo "Hugo installed"
+# [Optional] Uncomment this section to install additional OS packages you may want.
+#
+# RUN apt-get update && export DEBIAN_FRONTEND=noninteractive \
+#     && apt-get -y install --no-install-recommends <your-package-list-here>
 
-# Download and install Go
-RUN ARCH=$(uname -m) && \
-    if [ "$ARCH" = "aarch64" ]; then ARCH=arm64; else ARCH=amd64; fi && \
-    wget -O go${GO_VERSION}.linux-${ARCH}.tar.gz https://dl.google.com/go/go${GO_VERSION}.linux-${ARCH}.tar.gz && \
-    tar -C /usr/local -xzf go${GO_VERSION}.linux-${ARCH}.tar.gz && \
-    rm go${GO_VERSION}.linux-${ARCH}.tar.gz && \
-    echo "Go installed"
-
-# Export Go path
-ENV PATH=$PATH:/usr/local/go/bin
-
-# Verify versions
-RUN git --version && \
-    hugo version && \
-    go version
-
-# Default shell
-CMD ["/bin/bash"]
+# [Optional] Uncomment if you want to install more global Node.js packages.
+# RUN sudo -u node npm install -g <your-package-list-here>
