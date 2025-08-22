@@ -1,0 +1,55 @@
+name: Dev Build Hugo site to Pages
+
+on:
+  push:
+    branches: ["dev"]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+defaults:
+  run:
+    shell: bash
+
+env:
+  HUGO_ENV: production
+  HUGO_VERSION: "0.147.3"
+  GO_VERSION: "1.23.3"
+  TINA_CLIENT_ID: ${{ secrets.TINA_CLIENT_ID }}
+  TINA_TOKEN: ${{ secrets.TINA_TOKEN }}
+  TINA_SEARCH_TOKEN: ${{ secrets.TINA_SEARCH_TOKEN }}
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - name: Install Hugo
+        run: |
+          wget -O ${{ runner.temp }}/hugo.deb https://github.com/gohugoio/hugo/releases/download/v${HUGO_VERSION}/hugo_extended_${HUGO_VERSION}_linux-arm64.deb \
+          && sudo dpkg -i ${{ runner.temp }}/hugo.deb
+
+      - name: Install Go
+        run: |
+          wget -O ${{ runner.temp }}/go.deb https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz \
+          && sudo tar -C /usr/local -xzf ${{ runner.temp }}/go.deb
+
+      - name: Checkout
+        uses: actions/checkout@v4.2.2
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Setup Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Setup Project
+        run: npm run project-setup
+
+      - name: Install npm dependencies
+        run: npm install
+
+      - name: Build site
+        run: npm run build
